@@ -53,9 +53,9 @@ const App = () => {
           setPersons([...persons, returnedPerson])
           notifier(`Added ${returnedPerson.name}`, true)
         })
-        .catch(() => {
-          notifier(`${personObject.name} has not added to phonebook`, false)
-          
+        .catch(error => {
+          console.log(error.response.data.error)
+          notifier(error.response.data.error, false)
         })
     } else if (window.confirm(`${updatePerson[0].name} is already added to phonebook, replace the old number with a new one?`)) {
       personServiceUpdate(updatePerson[0].id, personObject)
@@ -65,9 +65,13 @@ const App = () => {
           setPersons(updatePersons)
           notifier(`Updated ${updatePerson[0].name}'s number`, true)
         })
-        .catch(() => {
-          notifier(`Information of ${updatePerson[0].name} has already been removed from server`, false)
-          setPersons(persons.filter(person => person.id !== updatePerson[0].id))
+        .catch((error) => {
+          if (error.response.status === 400) {
+            notifier(error.response.data.error, false)
+          } else {
+            notifier(`Information of ${updatePerson[0].name} has already been removed from server`, false)
+            setPersons(persons.filter(person => person.id !== updatePerson[0].id))
+          }
         })
     }
 
