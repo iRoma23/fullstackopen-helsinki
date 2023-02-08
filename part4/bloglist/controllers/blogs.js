@@ -24,13 +24,13 @@ blogsRouter.post('/', userExtractor, async (request, response) => {
 
   const user = await request.user
 
-  const blog = new Blog({
+  const blog = await new Blog({
     title: body.title,
     author: body.author,
     url: body.url,
     likes: body.likes,
     user: user._id
-  })
+  }).populate('user', { username: 1, name: 1 })
 
   const savedBlog = await blog.save()
   user.blogs = user.blogs.concat(savedBlog._id)
@@ -51,7 +51,7 @@ blogsRouter.delete('/:id', userExtractor, async (request, response) => {
 
   if (!(blog.user.toString() === user._id.toString())) {
     return response.status(401).json({
-      error: 'no permission'
+      error: 'only the creator can delete a blog'
     })
   }
 
@@ -60,27 +60,13 @@ blogsRouter.delete('/:id', userExtractor, async (request, response) => {
   response.status(204).end()
 })
 
-blogsRouter.put('/:id', userExtractor, async (request, response) => {
+blogsRouter.put('/:id', async (request, response) => {
   const body = request.body
   const blogId = request.params.id
-  const user = await request.user
 
-  const blog = await Blog.findById(blogId)
-
-  if (!(blog.user.toString() === user._id.toString())) {
-    return response.status(401).json({
-      error: 'no permission'
-    })
-  }
-
-  const blogToUpdate = {
-    title: body.title,
-    author: body.author,
-    url: body.url,
-    likes: body.likes
-  }
-
-  const updatedBlog = await Blog.findByIdAndUpdate(blogId, blogToUpdate, { new: true })
+  const updatedBlog = await Blog
+    .findByIdAndUpdate(blogId, body, { new: true })
+    .populate('user', { username: 1, name: 1 })
 
   response.json(updatedBlog)
 })
