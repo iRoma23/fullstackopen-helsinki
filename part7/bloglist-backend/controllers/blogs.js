@@ -22,7 +22,7 @@ blogsRouter.get('/:id', async (request, response) => {
 blogsRouter.post('/', userExtractor, async (request, response) => {
   const body = request.body
 
-  const user = await request.user
+  const user = request.user
 
   const blog = await new Blog({
     title: body.title,
@@ -30,18 +30,36 @@ blogsRouter.post('/', userExtractor, async (request, response) => {
     url: body.url,
     likes: body.likes,
     user: user._id
-  }).populate('user', { username: 1, name: 1 })
+  })
 
-  const savedBlog = await blog.save()
+  let savedBlog = await blog.save()
   user.blogs = user.blogs.concat(savedBlog._id)
   await user.save()
+
+  savedBlog = await Blog.findById(savedBlog._id).populate('user', { username: 1, name: 1 })
+
+  response.status(201).json(savedBlog)
+})
+
+blogsRouter.post('/:id/comments', userExtractor, async (request, response) => {
+  const { comment } = request.body
+  const { id } = request.params
+
+  const blog = await Blog
+    .findById(id)
+
+  blog.comments = blog.comments.concat(comment)
+
+  let savedBlog = await blog.save()
+
+  savedBlog = await Blog.findById(savedBlog._id).populate('user', { username: 1, name: 1 })
 
   response.status(201).json(savedBlog)
 })
 
 blogsRouter.delete('/:id', userExtractor, async (request, response) => {
   const blogId = request.params.id
-  const user = await request.user
+  const user = request.user
 
   const blog = await Blog.findById(blogId)
 
@@ -49,12 +67,15 @@ blogsRouter.delete('/:id', userExtractor, async (request, response) => {
     return response.status(204).end()
   }
 
-  if (!(blog.user.toString() === user._id.toString())) {
+  if (!user || blog.user.toString() !== user.id.toString()) {
     return response.status(401).json({
       error: 'only the creator can delete a blog'
     })
   }
 
+  user.blogs = user.blogs.filter(b => b.toString() !== blog.id.toString())
+
+  await user.save()
   await Blog.findByIdAndRemove(blogId)
 
   response.status(204).end()
@@ -64,9 +85,9 @@ blogsRouter.put('/:id', async (request, response) => {
   const { title, author, url, likes } = request.body
   const blogId = request.params.id
 
-  const updatedBlog = await Blog
-    .findByIdAndUpdate(blogId, { title, author, url, likes }, { new: true })
-    .populate('user', { username: 1, name: 1 })
+  let updatedBlog = await Blog.findByIdAndUpdate(blogId, { title, url, author, likes }, { new: true })
+
+  updatedBlog = await Blog.findById(updatedBlog._id).populate('user', { username: 1, name: 1 })
 
   response.json(updatedBlog)
 })
